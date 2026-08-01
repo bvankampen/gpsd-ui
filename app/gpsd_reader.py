@@ -72,7 +72,7 @@ def update_gps_data(data, gps_data):
             gps_data["pdop"] = data["pdop"]
 
 
-def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port):
+def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port, update_interval):
     """Background thread that reads data from gpsd."""
     while True:
         try:
@@ -95,6 +95,8 @@ def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port):
             app.logger.info("Connected - watching gpsd data stream")
 
             buffer = ""
+            last_emit = 0
+
             while True:
                 try:
                     chunk = sock.recv(4096)
@@ -133,7 +135,11 @@ def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port):
                                 app.logger.info(f"Active device: {data.get('path')}")
 
                             update_gps_data(data, gps_data)
-                            socketio.emit("gps_update", gps_data)
+
+                            now = time.time()
+                            if now - last_emit >= update_interval:
+                                socketio.emit("gps_update", gps_data)
+                                last_emit = now
 
                 except socket.timeout:
                     continue

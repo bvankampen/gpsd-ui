@@ -6,10 +6,10 @@ import time
 import ntplib
 
 
-def ntp_reader(app, socketio, ntp_data, ntp_host, ntp_interval):
+def ntp_reader(app, socketio, ntp_data, ntp_host, update_interval):
     """Background thread that queries NTP server."""
     client = ntplib.NTPClient()
-    app.logger.info(f"NTP reader started - querying {ntp_host} every {ntp_interval}s")
+    app.logger.info(f"NTP reader started - querying {ntp_host} every {update_interval}s")
 
     while True:
         try:
@@ -39,4 +39,4 @@ def ntp_reader(app, socketio, ntp_data, ntp_host, ntp_interval):
             ntp_data["connected"] = False
             socketio.emit("ntp_update", ntp_data)
 
-        time.sleep(ntp_interval)
+        time.sleep(update_interval)

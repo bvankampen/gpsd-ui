@@ -6,7 +6,7 @@ import sys
 import threading
 
 from app import app, socketio, gps_data, ntp_data
-from app.config import LOG_LEVEL, GPSD_HOST, GPSD_PORT, NTP_ENABLED, NTP_HOST, NTP_INTERVAL, WEB_HOST, WEB_PORT
+from app.config import LOG_LEVEL, GPSD_HOST, GPSD_PORT, NTP_ENABLED, NTP_HOST, UPDATE_INTERVAL, WEB_HOST, WEB_PORT
 from app.gpsd_reader import gpsd_reader
 from app.ntp_reader import ntp_reader
 
@@ -51,10 +51,10 @@ def main():
     app.logger.info("Configuration:")
     app.logger.info(f"  Log level    : {LOG_LEVEL}")
     app.logger.info(f"  GPSD host    : {GPSD_HOST}:{GPSD_PORT}")
+    app.logger.info(f"  Update interval: {UPDATE_INTERVAL}s")
     app.logger.info(f"  NTP enabled  : {NTP_ENABLED}")
     if NTP_ENABLED:
         app.logger.info(f"  NTP host     : {NTP_HOST}")
-        app.logger.info(f"  NTP interval : {NTP_INTERVAL}s")
     app.logger.info(f"  Web bind     : {WEB_HOST}:{WEB_PORT}")
     app.logger.info("=" * 60)
 
@@ -62,7 +62,7 @@ def main():
     app.logger.info("Starting GPSD reader thread...")
     reader = threading.Thread(
         target=gpsd_reader,
-        args=(app, socketio, gps_data, GPSD_HOST, GPSD_PORT),
+        args=(app, socketio, gps_data, GPSD_HOST, GPSD_PORT, UPDATE_INTERVAL),
         daemon=True,
     )
     reader.start()
@@ -72,7 +72,7 @@ def main():
         app.logger.info("Starting NTP reader thread...")
         ntp_thread = threading.Thread(
             target=ntp_reader,
-            args=(app, socketio, ntp_data, NTP_HOST, NTP_INTERVAL),
+            args=(app, socketio, ntp_data, NTP_HOST, UPDATE_INTERVAL),
             daemon=True,
         )
         ntp_thread.start()

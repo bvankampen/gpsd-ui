@@ -1,10 +1,12 @@
 # GPSD Web UI Configuration
 #
 # Environment variables override config.yaml values:
-#   GPSD_HOST, GPSD_PORT, NTP_ENABLED, NTP_HOST, NTP_INTERVAL,
-#   WEB_HOST, WEB_PORT, LOG_LEVEL
+#   GPSD_HOST, GPSD_PORT, NTP_ENABLED, NTP_HOST,
+#   UPDATE_INTERVAL, WEB_HOST, WEB_PORT, LOG_LEVEL
 
 log_level: INFO  # DEBUG, INFO, WARNING, ERROR
+
+update_interval: 1  # seconds - shared by GPS and NTP
 
 gpsd:
   host: localhost
@@ -13,7 +15,6 @@ gpsd:
 ntp:
   enabled: false
   host: ntp.ubuntu.com
-  interval: 5
 
 web:
   host: 0.0.0.0

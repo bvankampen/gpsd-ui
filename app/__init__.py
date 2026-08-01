@@ -6,7 +6,7 @@ from pathlib import Path
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 
-from app.config import GPSD_HOST, GPSD_PORT, NTP_ENABLED, NTP_HOST, NTP_INTERVAL, WEB_HOST, WEB_PORT
+from app.config import GPSD_HOST, GPSD_PORT, NTP_ENABLED, NTP_HOST, WEB_HOST, WEB_PORT
 
 ROOT_DIR = Path(__file__).parent.parent
 

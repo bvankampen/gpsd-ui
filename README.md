@@ -12,7 +12,7 @@ Real-time GPS satellite monitoring dashboard with polar sky plot and NTP time di
 - GPS time display with live incrementing seconds
 - NTP time synchronization with offset, delay, stratum, and precision
 - WebSocket real-time updates
-- Containerized deployment with Kubernetes support
+- Containerized deployment with Docker
 
 ## Quick Start
 
@@ -42,7 +42,7 @@ Configuration via `config.yaml` or environment variables (env vars override conf
 | `GPSD_PORT` | 2947 | GPS daemon port |
 | `NTP_ENABLED` | false | Enable NTP display |
 | `NTP_HOST` | pool.ntp.org | NTP server |
-| `NTP_INTERVAL` | 5 | NTP query interval (seconds) |
+| `UPDATE_INTERVAL` | 1 | Update interval in seconds (GPS and NTP) |
 | `WEB_HOST` | 0.0.0.0 | Flask bind address |
 | `WEB_PORT` | 5000 | Flask port |
 | `LOG_LEVEL` | INFO | Logging level |
