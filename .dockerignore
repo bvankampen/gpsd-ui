@@ -1,0 +1,10 @@
+.git
+.gitignore
+AGENTS.md
+config.yaml
+.env
+__pycache__
+*.pyc
+venv
+.dockerignore
+Dockerfile

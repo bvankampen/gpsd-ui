@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPSD Satellite UI</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <h1>GPSD Satellite UI</h1>
+        <div class="header-right">
+            <span id="device-name" class="data-value"></span>
+            <span id="status-badge" class="status-badge status-disconnected">Disconnected</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-cards">
+                <div class="card">
+                    <h3>Time (UTC)</h3>
+                <div id="gps-date" class="time-date">----</div>
+                <div id="gps-time" class="time-display">--:--:--</div>
+                <div id="gps-time-local" class="time-display-local">--:--:--</div>
+            </div>
+
+            <div class="card" id="ntp-card">
+                <h3>NTP</h3>
+                <div id="ntp-time" class="ntp-time-display">--:--:--</div>
+                <div class="data-row">
+                    <span class="data-label">Server</span>
+                    <span id="ntp-host" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Status</span>
+                    <span id="ntp-status" class="status-badge status-disconnected">Disconnected</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Offset (ms)</span>
+                    <span id="ntp-offset" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Delay (ms)</span>
+                    <span id="ntp-delay" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Stratum</span>
+                    <span id="ntp-stratum" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Ref ID</span>
+                    <span id="ntp-refid" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Precision</span>
+                    <span id="ntp-precision" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Root Delay</span>
+                    <span id="ntp-root-delay" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Root Dispersion</span>
+                    <span id="ntp-root-disp" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Leap</span>
+                    <span id="ntp-leap" class="data-value">--</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Receiver</h3>
+                <div class="data-row">
+                    <span class="data-label">Fix</span>
+                    <span id="fix-mode" class="fix-mode fix-no">No Fix</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Latitude</span>
+                    <span id="latitude" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Longitude</span>
+                    <span id="longitude" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Altitude</span>
+                    <span id="altitude" class="data-value">--</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Satellites</h3>
+                <div style="display: flex; gap: 20px;">
+                    <div class="count-display" style="flex:1;">
+                        <div id="sats-visible" class="count-value">0</div>
+                        <div class="count-label">Visible</div>
+                    </div>
+                    <div class="count-display" style="flex:1;">
+                        <div id="sats-used" class="count-value">0</div>
+                        <div class="count-label">Used</div>
+                    </div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:#4fc3f7;"></div> GPS</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#e94560;"></div> GLONASS</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#66bb6a;"></div> Galileo</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#ffa726;"></div> BeiDou</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#ab47bc;"></div> QZSS</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#78909c;"></div> Other</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Accuracy</h3>
+                <div class="data-row">
+                    <span class="data-label">Lon Error (epx)</span>
+                    <span id="epx" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Lat Error (epy)</span>
+                    <span id="epy" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Alt Error (epv)</span>
+                    <span id="epv" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Speed Error (eps)</span>
+                    <span id="eps" class="data-value">--</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Climb Error (epc)</span>
+                    <span id="epc" class="data-value">--</span>
+                </div>
+            </div>
+            </div>
+
+            <div class="footer">
+                Build by: Bas van Kampen &lt;<a href="mailto:bas@ping6.nl">bas@ping6.nl</a>&gt;
+            </div>
+        </div>
+
+        <div class="main">
+            <div class="sky-container">
+                <canvas id="skyplot" width="350" height="350"></canvas>
+            </div>
+            <div class="sat-table-container">
+                <table class="sat-table">
+                    <thead>
+                        <tr>
+                            <th>PRN</th>
+                            <th>Type</th>
+                            <th>Azimuth</th>
+                            <th>Elevation</th>
+                            <th>SNR (dB)</th>
+                            <th>Signal</th>
+                            <th>Used</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sat-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
