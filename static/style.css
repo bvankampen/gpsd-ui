@@ -1,207 +1,80 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #F7F7F7; color: #211E1E; }
+/* Custom overrides for Bootstrap v5 */
 
-.header {
-    background: #16213e;
-    padding: 12px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 2px solid #0f3460;
+/* Smooth theme transition */
+html {
+    transition: background-color 0.15s ease, color 0.15s ease;
 }
-.header h1 { font-size: 1.4rem; color: #e94560; }
-.header-right { display: flex; align-items: center; gap: 16px; }
-.status-badge {
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-.status-connected { background: #00c853; color: #000; }
-.status-disconnected { background: #ff1744; color: #fff; }
-
-.container { display: flex; height: calc(100vh - 52px); }
-
-.sidebar {
-    width: 300px;
-    background: #16213e;
-    overflow-y: auto;
-    padding: 16px;
-    border-right: 2px solid #0f3460;
-    display: flex;
-    flex-direction: column;
+html * {
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.sidebar-cards {
-    flex: 1;
+/* Theme toggle button */
+#theme-toggle {
+    line-height: 1;
+    padding: 0.3rem 0.4rem;
 }
 
-.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-.sky-container {
-    flex: 0 0 300px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    background: #16213e;
-}
-#skyplot { max-width: 100%; max-height: 100%; }
-
-.sat-table-container {
-    flex: 1;
-    border-top: 2px solid #0f3460;
-    overflow-y: auto;
-    background: #16213e;
-}
-
-.card {
-    background: #F7F7F7;
-    border: 1px solid #0f3460;
-    border-radius: 8px;
-    padding: 14px;
-    margin-bottom: 12px;
-}
-.card h3 {
-    font-size: 0.85rem;
-    color: #e94560;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 10px;
-    border-bottom: 1px solid #0f3460;
-    padding-bottom: 6px;
-}
-
-.data-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    font-size: 0.85rem;
-}
-.data-label { color: #555; }
-.data-value { color: #211E1E; font-weight: 500; font-variant-numeric: tabular-nums; }
-
-.fix-mode {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-.fix-no { background: #ddd; color: #555; }
-.fix-2d { background: #ff9800; color: #000; }
-.fix-3d { background: #00c853; color: #000; }
-
-.count-display { text-align: center; padding: 8px 0; }
-.count-value { font-size: 2rem; font-weight: 700; color: #211E1E; }
-.count-label { font-size: 0.8rem; color: #555; }
-
+/* Time displays */
 .time-display {
     font-size: 2.2rem;
     font-weight: 700;
-    color: #211E1E;
-    text-align: center;
     font-variant-numeric: tabular-nums;
     font-family: 'Courier New', monospace;
-}
-
-.time-date {
-    font-size: 1rem;
-    font-weight: 500;
-    color: #555;
-    text-align: center;
-    font-family: 'Courier New', monospace;
-    margin-bottom: 4px;
 }
 
 .time-display-local {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 500;
-    color: #555;
-    text-align: center;
     font-variant-numeric: tabular-nums;
     font-family: 'Courier New', monospace;
-    margin-top: 4px;
 }
 
 .ntp-time-display {
     font-size: 1.8rem;
     font-weight: 700;
-    color: #211E1E;
-    text-align: center;
     font-variant-numeric: tabular-nums;
     font-family: 'Courier New', monospace;
 }
 
-.legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 8px;
-}
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.75rem;
-    color: #555;
-}
+/* Legend dots */
 .legend-dot {
+    display: inline-block;
     width: 10px;
     height: 10px;
     border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
 }
 
-.sat-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.8rem;
+/* Polar sky plot canvas */
+.sky-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.sat-table th {
-    position: sticky;
-    top: 0;
-    background: #16213e;
-    color: #F7F7F7;
-    text-align: left;
-    padding: 8px 10px;
-    border-bottom: 2px solid #0f3460;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-}
-.sat-table td {
-    padding: 6px 10px;
-    border-bottom: 1px solid #0f3460;
-    font-variant-numeric: tabular-nums;
-}
-.sat-table tr:hover { background: rgba(15, 52, 96, 0.1); }
-.sat-table .used { color: #00c853; }
-.sat-table .unused { color: #888; }
 
+#skyplot {
+    max-width: 100%;
+    height: auto;
+}
+
+/* SNR bar in table */
 .snr-bar {
     height: 14px;
     border-radius: 2px;
     min-width: 2px;
 }
 
-.footer {
-    margin-top: auto;
-    padding-top: 12px;
-    border-top: 1px solid #0f3460;
-    font-size: 0.75rem;
-    color: #888;
-    text-align: center;
-}
-.footer a {
-    color: inherit;
-    text-decoration: none;
-}
-.footer a:hover {
-    text-decoration: underline;
+/* Responsive sidebar */
+@media (max-width: 767.98px) {
+    .sidebar {
+        max-height: 40vh;
+    }
 }
 
-@media (max-width: 768px) {
-    .container { flex-direction: column; }
-    .sidebar { width: 100%; height: auto; max-height: 30vh; }
-    .sat-table-container { height: 200px; }
+/* Sticky table header */
+.table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
