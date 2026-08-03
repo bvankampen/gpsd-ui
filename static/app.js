@@ -12,6 +12,30 @@ const GNSS_NAMES = {
     4: 'QZSS', 5: 'SBAS', 6: 'Other',
 };
 
+// Theme helpers
+function isDark() {
+    return document.documentElement.getAttribute('data-bs-theme') === 'dark';
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-bs-theme', theme);
+    localStorage.setItem('bs-theme', theme);
+    document.getElementById('theme-icon-dark').style.display = theme === 'dark' ? '' : 'none';
+    document.getElementById('theme-icon-light').style.display = theme === 'light' ? '' : 'none';
+    drawSkyPlot(lastSatellites || []);
+}
+
+// Set initial icon state
+(function() {
+    var t = localStorage.getItem('bs-theme') || 'dark';
+    document.getElementById('theme-icon-dark').style.display = t === 'dark' ? '' : 'none';
+    document.getElementById('theme-icon-light').style.display = t === 'light' ? '' : 'none';
+})();
+
+document.getElementById('theme-toggle').addEventListener('click', function() {
+    applyTheme(isDark() ? 'light' : 'dark');
+});
+
 let lastGpsTime = null;
 
 function updateTimeDisplay() {
@@ -53,17 +77,21 @@ function updateNtpTimeDisplay() {
 const canvas = document.getElementById('skyplot');
 const ctx = canvas.getContext('2d');
 
+let lastSatellites = null;
+
 function drawSkyPlot(satellites) {
+    lastSatellites = satellites;
     const w = canvas.width;
     const h = canvas.height;
     const cx = w / 2;
     const cy = h / 2;
     const maxR = Math.min(cx, cy) - 40;
+    const dark = isDark();
 
     ctx.clearRect(0, 0, w, h);
 
     // Background
-    ctx.fillStyle = '#e8e8e8';
+    ctx.fillStyle = dark ? '#1a1d21' : '#e8e8e8';
     ctx.beginPath();
     ctx.arc(cx, cy, maxR + 20, 0, Math.PI * 2);
     ctx.fill();
@@ -73,13 +101,13 @@ function drawSkyPlot(satellites) {
         const r = maxR * (1 - el / 90);
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.strokeStyle = el === 0 ? '#bbb' : '#d0d0d0';
+        ctx.strokeStyle = dark ? (el === 0 ? '#555' : '#444') : (el === 0 ? '#bbb' : '#d0d0d0');
         ctx.lineWidth = 1;
         ctx.stroke();
 
         // Label
         if (el > 0 && el < 90) {
-            ctx.fillStyle = '#211E1E';
+            ctx.fillStyle = dark ? '#ccc' : '#211E1E';
             ctx.font = '10px monospace';
             ctx.textAlign = 'center';
             ctx.fillText(el + '°', cx + 3, cy - r + 12);
@@ -99,12 +127,12 @@ function drawSkyPlot(satellites) {
     dirs.forEach(d => {
         const lx = cx + Math.cos(d.angle) * (maxR + 14);
         const ly = cy + Math.sin(d.angle) * (maxR + 14);
-        ctx.fillStyle = d.label === 'N' ? '#e94560' : '#211E1E';
+        ctx.fillStyle = d.label === 'N' ? '#e94560' : (dark ? '#ccc' : '#211E1E');
         ctx.fillText(d.label, lx, ly);
     });
 
     // Cross lines
-    ctx.strokeStyle = '#ccc';
+    ctx.strokeStyle = dark ? '#444' : '#ccc';
     ctx.lineWidth = 1;
     [[-Math.PI/2, Math.PI/2], [0, Math.PI]].forEach(([a1, a2]) => {
         ctx.beginPath();
@@ -139,7 +167,7 @@ function drawSkyPlot(satellites) {
         ctx.fill();
 
         // PRN label
-        ctx.fillStyle = '#211E1E';
+        ctx.fillStyle = dark ? '#ccc' : '#211E1E';
         ctx.font = sat.used ? 'bold 9px monospace' : '9px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -156,14 +184,17 @@ function updateSatTable(satellites) {
         const name = GNSS_NAMES[sat.gnssid] || 'Unknown';
         const ss = sat.ss != null ? sat.ss : 0;
         const barWidth = Math.max(0, Math.min(100, ss * 100 / 50));
+        const usedBadge = sat.used
+            ? '<span class="badge bg-success">Yes</span>'
+            : '<span class="badge bg-secondary">No</span>';
         return `<tr>
             <td style="color:${color}; font-weight:600;">${sat.PRN}</td>
             <td style="color:${color};">${name}</td>
-            <td style="color:#e0e0e0;">${sat.az != null ? sat.az.toFixed(0) + '°' : '--'}</td>
-            <td style="color:#e0e0e0;">${sat.el != null ? sat.el.toFixed(0) + '°' : '--'}</td>
-            <td style="color:#e0e0e0;">${sat.ss != null ? sat.ss.toFixed(1) : '--'}</td>
+            <td>${sat.az != null ? sat.az.toFixed(0) + '°' : '--'}</td>
+            <td>${sat.el != null ? sat.el.toFixed(0) + '°' : '--'}</td>
+            <td>${sat.ss != null ? sat.ss.toFixed(1) : '--'}</td>
             <td><div class="snr-bar" style="width:${barWidth}%; background:${color};"></div></td>
-            <td class="${sat.used ? 'used' : 'unused'}">${sat.used ? 'Yes' : 'No'}</td>
+            <td>${usedBadge}</td>
         </tr>`;
     }).join('');
 }
@@ -176,7 +207,7 @@ socket.on('connect', () => console.log('Connected to server'));
 socket.on('gps_status', (data) => {
     const badge = document.getElementById('status-badge');
     badge.textContent = data.connected ? 'Connected' : 'Disconnected';
-    badge.className = 'status-badge ' + (data.connected ? 'status-connected' : 'status-disconnected');
+    badge.className = 'badge ' + (data.connected ? 'bg-success' : 'bg-danger');
 });
 
 socket.on('gps_update', (data) => {
@@ -184,12 +215,12 @@ socket.on('gps_update', (data) => {
 
     const badge = document.getElementById('status-badge');
     badge.textContent = data.connected ? 'Connected' : 'Disconnected';
-    badge.className = 'status-badge ' + (data.connected ? 'status-connected' : 'status-disconnected');
+    badge.className = 'badge ' + (data.connected ? 'bg-success' : 'bg-danger');
 
     const fixEl = document.getElementById('fix-mode');
-    if (data.mode === 3) { fixEl.textContent = '3D Fix'; fixEl.className = 'fix-mode fix-3d'; }
-    else if (data.mode === 2) { fixEl.textContent = '2D Fix'; fixEl.className = 'fix-mode fix-2d'; }
-    else { fixEl.textContent = 'No Fix'; fixEl.className = 'fix-mode fix-no'; }
+    if (data.mode === 3) { fixEl.textContent = '3D Fix'; fixEl.className = 'badge bg-success'; }
+    else if (data.mode === 2) { fixEl.textContent = '2D Fix'; fixEl.className = 'badge bg-warning text-dark'; }
+    else { fixEl.textContent = 'No Fix'; fixEl.className = 'badge bg-secondary'; }
 
     document.getElementById('latitude').textContent =
         data.latitude != null ? data.latitude.toFixed(6) + '°' : '--';
@@ -236,10 +267,10 @@ socket.on('ntp_update', (data) => {
     const statusEl = document.getElementById('ntp-status');
     if (data.connected) {
         statusEl.textContent = 'Connected';
-        statusEl.className = 'status-badge status-connected';
+        statusEl.className = 'badge bg-success';
     } else {
         statusEl.textContent = 'Disconnected';
-        statusEl.className = 'status-badge status-disconnected';
+        statusEl.className = 'badge bg-danger';
     }
 
     if (data.time) {
