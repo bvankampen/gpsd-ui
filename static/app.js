@@ -36,13 +36,12 @@ document.getElementById('theme-toggle').addEventListener('click', function() {
     applyTheme(isDark() ? 'light' : 'dark');
 });
 
-let lastGpsTime = null;
+let gpsAnchor = null;
 
 function updateTimeDisplay() {
-    const now = lastGpsTime ? new Date(lastGpsTime) : new Date();
-    if (lastGpsTime) {
-        lastGpsTime.setSeconds(lastGpsTime.getSeconds() + 1);
-    }
+    const now = gpsAnchor
+        ? new Date(gpsAnchor.serverTime.getTime() + (Date.now() - gpsAnchor.receivedAt))
+        : new Date();
 
     // UTC time
     const utcTime = now.toISOString().match(/T(\d{2}:\d{2}:\d{2})/);
@@ -58,13 +57,12 @@ function updateTimeDisplay() {
     document.getElementById('gps-time-local').textContent = localTime + ' ' + tz;
 }
 
-let lastNtpTime = null;
+let ntpAnchor = null;
 
 function updateNtpTimeDisplay() {
-    const now = lastNtpTime ? new Date(lastNtpTime) : null;
-    if (lastNtpTime) {
-        lastNtpTime.setSeconds(lastNtpTime.getSeconds() + 1);
-    }
+    const now = ntpAnchor
+        ? new Date(ntpAnchor.serverTime.getTime() + (Date.now() - ntpAnchor.receivedAt))
+        : null;
 
     if (now) {
         const utcTime = now.toISOString().match(/T(\d{2}:\d{2}:\d{2})/);
@@ -231,7 +229,7 @@ socket.on('gps_update', (data) => {
 
     // Format time - extract HH:MM:SS from ISO string and show local time
     if (data.time) {
-        lastGpsTime = new Date(data.time);
+        gpsAnchor = { serverTime: new Date(data.time), receivedAt: Date.now() };
         updateTimeDisplay();
     }
 
@@ -274,10 +272,10 @@ socket.on('ntp_update', (data) => {
     }
 
     if (data.time) {
-        lastNtpTime = new Date(data.time);
+        ntpAnchor = { serverTime: new Date(data.time), receivedAt: Date.now() };
         updateNtpTimeDisplay();
     } else {
-        lastNtpTime = null;
+        ntpAnchor = null;
         document.getElementById('ntp-time').textContent = '--:--:--';
     }
 
