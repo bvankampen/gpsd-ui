@@ -9,9 +9,12 @@ Real-time GPS satellite monitoring dashboard with polar sky plot and NTP time di
 - Polar sky plot showing satellite positions by azimuth/elevation
 - GNSS constellation color coding (GPS, Galileo, GLONASS, BeiDou, SBAS)
 - Satellite table with PRN, type, coordinates, signal strength, and usage status
+- Satellite table filtering by constellation/PRN and used-in-fix status
 - GPS time display with live incrementing seconds
+- Receiver position, speed, course, and climb telemetry
 - NTP time synchronization with offset, delay, stratum, and precision
-- WebSocket real-time updates
+- WebSocket real-time updates with separate browser and GPS connection status
+- REST snapshots at `/api/gps` and `/api/ntp`, plus `/health` for monitoring
 - Containerized deployment with Docker
 
 ## Quick Start
@@ -45,11 +48,32 @@ Configuration via `config.yaml` or environment variables (env vars override conf
 | `UPDATE_INTERVAL` | 1 | Update interval in seconds (GPS and NTP) |
 | `WEB_HOST` | 0.0.0.0 | Flask bind address |
 | `WEB_PORT` | 5000 | Flask port |
+| `CORS_ALLOWED_ORIGINS` | same-origin | Comma-separated origins allowed to use Socket.IO |
 | `LOG_LEVEL` | INFO | Logging level |
+
+When GPSD is unavailable, `/health` returns HTTP 503 with a `degraded` status; it returns HTTP 200 once GPSD is connected.
+
+## Monitoring API
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/gps` | Current GPS position, fix, accuracy, device, and satellite data |
+| `GET /api/ntp` | Current NTP synchronization data |
+| `GET /health` | Service health; HTTP 503 indicates GPSD is disconnected |
+
+## Tests
+
+Run the backend contract and parser tests with:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+The test suite does not require a running GPSD instance.
 
 ## Architecture
 
-```
+```text
 gpsd-ui/
 ├── app/
 │   ├── __init__.py        # Flask app, routes, socketio events
@@ -61,6 +85,8 @@ gpsd-ui/
 │   └── app.js             # JavaScript (WebSocket, polar plot, tables)
 ├── templates/
 │   └── index.html         # HTML template
+├── tests/
+│   └── test_app.py        # API and GPSD parsing tests
 ├── config.example.yaml    # Example config
 ├── Dockerfile
 └── requirements.txt
@@ -75,3 +101,4 @@ gpsd-ui/
 ## License
 
 [MIT License](LICENSE) - Author: Bas van Kampen <bas@ping6.nl>
+

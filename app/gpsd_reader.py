@@ -7,17 +7,21 @@ import time
 
 
 def parse_gpsd_response(line):
-    """Parse a JSON response from gpsd."""
+    """Parse a JSON object response from gpsd."""
     try:
-        return json.loads(line)
+        data = json.loads(line)
     except json.JSONDecodeError:
         return None
-
+    return data if isinstance(data, dict) else None
 
 def update_gps_data(data, gps_data):
     """Update shared GPS data from gpsd response."""
     if data.get("class") == "DEVICES":
-        gps_data["devices"] = [d["path"] for d in data.get("devices", [])]
+        gps_data["devices"] = [
+            device.get("path")
+            for device in data.get("devices", [])
+            if isinstance(device, dict) and device.get("path")
+        ]
 
     elif data.get("class") == "DEVICE":
         gps_data["device"] = data.get("path")
@@ -51,18 +55,20 @@ def update_gps_data(data, gps_data):
             gps_data["epc"] = data["epc"]
 
     elif data.get("class") == "SKY":
-        if "satellites" in data:
+        satellites = data.get("satellites")
+        if isinstance(satellites, list):
             gps_data["satellites"] = [
                 {
-                    "PRN": s.get("PRN"),
-                    "az": s.get("az"),
-                    "el": s.get("el"),
-                    "ss": s.get("ss"),
-                    "used": s.get("used", False),
-                    "gnssid": s.get("gnssid", 0),
-                    "svid": s.get("svid"),
+                    "PRN": satellite.get("PRN"),
+                    "az": satellite.get("az"),
+                    "el": satellite.get("el"),
+                    "ss": satellite.get("ss"),
+                    "used": satellite.get("used", False),
+                    "gnssid": satellite.get("gnssid", 0),
+                    "svid": satellite.get("svid"),
                 }
-                for s in data["satellites"]
+                for satellite in satellites
+                if isinstance(satellite, dict)
             ]
         if "hdop" in data:
             gps_data["hdop"] = data["hdop"]
@@ -75,6 +81,8 @@ def update_gps_data(data, gps_data):
 def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port, update_interval):
     """Background thread that reads data from gpsd."""
     while True:
+        sock = None
+        connected = False
         try:
             app.logger.info(f"Connecting to gpsd at {gpsd_host}:{gpsd_port}...")
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -91,6 +99,7 @@ def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port, update_interval):
             sock.sendall(b'?WATCH={"enable":true,"json":true}\n')
 
             gps_data["connected"] = True
+            connected = True
             socketio.emit("gps_status", {"connected": True})
             app.logger.info("Connected - watching gpsd data stream")
 
@@ -118,18 +127,24 @@ def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port, update_interval):
                                 mode = data.get("mode", 0)
                                 lat = data.get("lat")
                                 lon = data.get("lon")
-                                sats_used = len([s for s in gps_data.get("satellites", []) if s.get("used")])
+                                sats_used = len(
+                                    [s for s in gps_data.get("satellites", []) if s.get("used")]
+                                )
                                 app.logger.debug(
                                     f"TPV: mode={mode} lat={lat} lon={lon} sats_used={sats_used}"
                                 )
                             elif msg_class == "SKY":
-                                sats = data.get("satellites", [])
+                                sats = data.get("satellites") or []
                                 hdop = data.get("hdop")
                                 app.logger.debug(
                                     f"SKY: satellites={len(sats)} hdop={hdop}"
                                 )
                             elif msg_class == "DEVICES":
-                                devices = [d.get("path") for d in data.get("devices", [])]
+                                devices = [
+                                    d.get("path")
+                                    for d in data.get("devices", [])
+                                    if isinstance(d, dict) and d.get("path")
+                                ]
                                 app.logger.info(f"Devices detected: {devices}")
                             elif msg_class == "DEVICE":
                                 app.logger.info(f"Active device: {data.get('path')}")
@@ -137,23 +152,24 @@ def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port, update_interval):
                             update_gps_data(data, gps_data)
 
                             now = time.time()
+                            gps_data["last_update"] = now
                             if now - last_emit >= update_interval:
                                 socketio.emit("gps_update", gps_data)
                                 last_emit = now
-
                 except socket.timeout:
                     continue
 
         except (ConnectionRefusedError, OSError) as e:
             app.logger.error(f"gpsd connection failed: {e}")
-            gps_data["connected"] = False
-            socketio.emit("gps_status", {"connected": False})
-
         finally:
             try:
-                sock.close()
-            except Exception:
+                if sock is not None:
+                    sock.close()
+            except OSError:
                 pass
+            if connected or gps_data["connected"]:
+                gps_data["connected"] = False
+                socketio.emit("gps_status", {"connected": False})
 
         app.logger.info("Reconnecting in 5s...")
         time.sleep(5)

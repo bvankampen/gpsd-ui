@@ -3,10 +3,18 @@
 
 from pathlib import Path
 
-from flask import Flask, render_template
-from flask_socketio import SocketIO
+from flask import Flask, jsonify, render_template
+from flask_socketio import SocketIO, emit
 
-from app.config import GPSD_HOST, GPSD_PORT, NTP_ENABLED, NTP_HOST, WEB_HOST, WEB_PORT
+from app.config import (
+    CORS_ALLOWED_ORIGINS,
+    GPSD_HOST,
+    GPSD_PORT,
+    NTP_ENABLED,
+    NTP_HOST,
+    WEB_HOST,
+    WEB_PORT,
+)
 
 ROOT_DIR = Path(__file__).parent.parent
 
@@ -16,7 +24,7 @@ app = Flask(
     static_folder=str(ROOT_DIR / "static"),
 )
 app.config["SECRET_KEY"] = "gpsd-ui-secret"
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="gevent")
+socketio = SocketIO(app, cors_allowed_origins=CORS_ALLOWED_ORIGINS, async_mode="gevent")
 
 # Shared state
 gps_data = {
@@ -40,6 +48,7 @@ gps_data = {
     "epc": None,
     "devices": [],
     "device": None,
+    "last_update": None,
 }
 
 ntp_data = {
@@ -70,10 +79,27 @@ def api_gps():
     """REST endpoint for current GPS data."""
     return gps_data
 
+@app.route("/api/ntp")
+def api_ntp():
+    """REST endpoint for current NTP data."""
+    return ntp_data
+
+
+@app.route("/health")
+def health():
+    """Return service health for container/orchestrator checks."""
+    healthy = gps_data["connected"]
+    payload = {
+        "status": "ok" if healthy else "degraded",
+        "gps_connected": gps_data["connected"],
+        "ntp_enabled": ntp_data["enabled"],
+    }
+    return jsonify(payload), 200 if healthy else 503
+
 
 @socketio.on("connect")
 def handle_connect():
-    """Handle new WebSocket connection."""
+    """Send the current state to the newly connected WebSocket client."""
     app.logger.info("Client connected via WebSocket")
-    socketio.emit("gps_update", gps_data)
-    socketio.emit("ntp_update", ntp_data)
+    emit("gps_update", gps_data)
+    emit("ntp_update", ntp_data)

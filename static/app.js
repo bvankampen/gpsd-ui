@@ -76,6 +76,14 @@ const canvas = document.getElementById('skyplot');
 const ctx = canvas.getContext('2d');
 
 let lastSatellites = null;
+let satelliteQuery = '';
+let usedOnly = false;
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    })[char]);
+}
 
 function drawSkyPlot(satellites) {
     lastSatellites = satellites;
@@ -175,9 +183,19 @@ function drawSkyPlot(satellites) {
 
 function updateSatTable(satellites) {
     const tbody = document.getElementById('sat-table-body');
-    const sorted = [...satellites].sort((a, b) => (b.ss || 0) - (a.ss || 0));
+    const query = satelliteQuery.trim().toLowerCase();
+    const filtered = satellites.filter(sat => {
+        const name = GNSS_NAMES[sat.gnssid] || 'Unknown';
+        const matchesQuery = !query || `${sat.PRN ?? ''} ${name}`.toLowerCase().includes(query);
+        return matchesQuery && (!usedOnly || sat.used);
+    });
+    const status = document.getElementById('sat-filter-status');
+    status.textContent = filtered.length === satellites.length
+        ? `${satellites.length} satellite${satellites.length === 1 ? '' : 's'}`
+        : `${filtered.length} of ${satellites.length} satellites`;
 
-    tbody.innerHTML = sorted.map(sat => {
+    const sorted = [...filtered].sort((a, b) => (b.ss || 0) - (a.ss || 0));
+    tbody.innerHTML = sorted.length ? sorted.map(sat => {
         const color = GNSS_COLORS[sat.gnssid] || GNSS_COLORS[6];
         const name = GNSS_NAMES[sat.gnssid] || 'Unknown';
         const ss = sat.ss != null ? sat.ss : 0;
@@ -186,7 +204,7 @@ function updateSatTable(satellites) {
             ? '<span class="badge bg-success">Yes</span>'
             : '<span class="badge bg-secondary">No</span>';
         return `<tr>
-            <td style="color:${color}; font-weight:600;">${sat.PRN}</td>
+            <td style="color:${color}; font-weight:600;">${escapeHtml(sat.PRN)}</td>
             <td style="color:${color};">${name}</td>
             <td>${sat.az != null ? sat.az.toFixed(0) + '°' : '--'}</td>
             <td>${sat.el != null ? sat.el.toFixed(0) + '°' : '--'}</td>
@@ -194,13 +212,36 @@ function updateSatTable(satellites) {
             <td><div class="snr-bar" style="width:${barWidth}%; background:${color};"></div></td>
             <td>${usedBadge}</td>
         </tr>`;
-    }).join('');
+    }).join('') : '<tr><td colspan="7" class="text-center text-body-secondary py-4">No satellites match the current filter</td></tr>';
 }
+
+document.getElementById('sat-search').addEventListener('input', event => {
+    satelliteQuery = event.target.value;
+    updateSatTable(lastSatellites || []);
+});
+
+document.getElementById('used-only').addEventListener('change', event => {
+    usedOnly = event.target.checked;
+    updateSatTable(lastSatellites || []);
+});
 
 // Socket.IO
 const socket = io();
 
-socket.on('connect', () => console.log('Connected to server'));
+function setSocketStatus(state, text, className) {
+    const badge = document.getElementById('socket-status');
+    badge.textContent = text;
+    badge.className = 'badge ' + className;
+    badge.setAttribute('aria-label', `WebSocket ${state}`);
+}
+
+socket.on('connect', () => {
+    console.log('Connected to server');
+    setSocketStatus('connected', 'Live', 'bg-success');
+});
+
+socket.on('disconnect', () => setSocketStatus('disconnected', 'Offline', 'bg-danger'));
+socket.on('connect_error', () => setSocketStatus('connecting', 'Retrying', 'bg-warning text-dark'));
 
 socket.on('gps_status', (data) => {
     const badge = document.getElementById('status-badge');
@@ -226,7 +267,12 @@ socket.on('gps_update', (data) => {
         data.longitude != null ? data.longitude.toFixed(6) + '°' : '--';
     document.getElementById('altitude').textContent =
         data.altitude != null ? data.altitude.toFixed(1) + ' m' : '--';
-
+    document.getElementById('speed').textContent =
+        data.speed != null ? (data.speed * 3.6).toFixed(1) + ' km/h' : '--';
+    document.getElementById('course').textContent =
+        data.course != null ? data.course.toFixed(1) + '°' : '--';
+    document.getElementById('climb').textContent =
+        data.climb != null ? data.climb.toFixed(1) + ' m/s' : '--';
     // Format time - extract HH:MM:SS from ISO string and show local time
     if (data.time) {
         gpsAnchor = { serverTime: new Date(data.time), receivedAt: Date.now() };

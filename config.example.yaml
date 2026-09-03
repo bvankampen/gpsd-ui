@@ -19,3 +19,6 @@ ntp:
 web:
   host: 0.0.0.0
   port: 5000
+  # Optional comma-separated origins for cross-origin Socket.IO clients.
+  # Leave unset to allow same-origin clients only.
+  # cors_allowed_origins: https://dashboard.example.com
