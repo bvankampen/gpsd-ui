@@ -65,6 +65,18 @@ html * {
     min-width: 2px;
 }
 
+/* Satellite table controls */
+.table-toolbar #sat-search {
+    max-width: 18rem;
+}
+
+@media (max-width: 767.98px) {
+    .table-toolbar #sat-search {
+        flex: 1 1 12rem;
+        max-width: none;
+    }
+}
+
 /* Responsive sidebar */
 @media (max-width: 767.98px) {
     .sidebar {
