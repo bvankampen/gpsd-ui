@@ -43,6 +43,7 @@ Configuration via `config.yaml` or environment variables (env vars override conf
 |---------|---------|-------------|
 | `GPSD_HOST` | localhost | GPS daemon host |
 | `GPSD_PORT` | 2947 | GPS daemon port |
+| `GPSD_STALL_TIMEOUT` | 30 | Seconds without gpsd data before the reader drops the connection and reconnects |
 | `NTP_ENABLED` | false | Enable NTP display |
 | `NTP_HOST` | pool.ntp.org | NTP server |
 | `UPDATE_INTERVAL` | 1 | Update interval in seconds (GPS and NTP) |
@@ -51,7 +52,7 @@ Configuration via `config.yaml` or environment variables (env vars override conf
 | `CORS_ALLOWED_ORIGINS` | same-origin | Comma-separated origins allowed to use Socket.IO |
 | `LOG_LEVEL` | INFO | Logging level |
 
-When GPSD is unavailable, `/health` returns HTTP 503 with a `degraded` status; it returns HTTP 200 once GPSD is connected.
+When GPSD is unavailable, `/health` returns HTTP 503 with a `degraded` status; it returns HTTP 200 once GPSD is connected. A feed that stops delivering data (including a half-open TCP connection) counts as unavailable: the reader drops the socket and reconnects once no message has arrived for `GPSD_STALL_TIMEOUT` seconds, and the dashboard freezes the affected clock and reports its age instead of letting it keep ticking.
 
 ## Monitoring API
 

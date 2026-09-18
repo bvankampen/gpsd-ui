@@ -5,6 +5,27 @@ import json
 import socket
 import time
 
+# Kernel keepalive probes for the long-lived gpsd connection. A peer that
+# disappears without a FIN/RST leaves the socket half-open, where recv() never
+# returns and never errors; the probes force the failure to surface.
+KEEPALIVE_IDLE = 30
+KEEPALIVE_INTERVAL = 10
+KEEPALIVE_PROBES = 3
+
+
+def configure_keepalive(sock, app):
+    """Enable TCP keepalive with a short idle window on the gpsd socket."""
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        if hasattr(socket, "TCP_KEEPIDLE"):
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, KEEPALIVE_IDLE)
+        if hasattr(socket, "TCP_KEEPINTVL"):
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, KEEPALIVE_INTERVAL)
+        if hasattr(socket, "TCP_KEEPCNT"):
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, KEEPALIVE_PROBES)
+    except OSError as e:
+        app.logger.warning(f"Could not tune gpsd socket keepalive: {e}")
+
 
 def parse_gpsd_response(line):
     """Parse a JSON object response from gpsd."""
@@ -78,16 +99,24 @@ def update_gps_data(data, gps_data):
             gps_data["pdop"] = data["pdop"]
 
 
-def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port, update_interval):
-    """Background thread that reads data from gpsd."""
+def gpsd_reader(
+    app, socketio, gps_data, gpsd_host, gpsd_port, update_interval, stall_timeout=30
+):
+    """Background thread that reads data from gpsd.
+
+    ``gps_data["connected"]`` reports the data stream, not the TCP session: it
+    is set once messages arrive and cleared when the connection ends or when no
+    message has arrived for ``stall_timeout`` seconds. A silent peer must never
+    be presented as a live feed.
+    """
     while True:
         sock = None
-        connected = False
         try:
             app.logger.info(f"Connecting to gpsd at {gpsd_host}:{gpsd_port}...")
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((gpsd_host, gpsd_port))
             sock.settimeout(2.0)
+            configure_keepalive(sock, app)
 
             # Read the version banner
             banner = sock.recv(4096).decode("utf-8", errors="replace")
@@ -98,13 +127,11 @@ def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port, update_interval):
             # Enable watching
             sock.sendall(b'?WATCH={"enable":true,"json":true}\n')
 
-            gps_data["connected"] = True
-            connected = True
-            socketio.emit("gps_status", {"connected": True})
-            app.logger.info("Connected - watching gpsd data stream")
+            app.logger.info("Connected - waiting for gpsd data")
 
             buffer = ""
             last_emit = 0
+            last_message = time.time()
 
             while True:
                 try:
@@ -152,11 +179,21 @@ def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port, update_interval):
                             update_gps_data(data, gps_data)
 
                             now = time.time()
+                            last_message = now
                             gps_data["last_update"] = now
+                            if not gps_data["connected"]:
+                                gps_data["connected"] = True
+                                socketio.emit("gps_status", {"connected": True})
                             if now - last_emit >= update_interval:
                                 socketio.emit("gps_update", gps_data)
                                 last_emit = now
                 except socket.timeout:
+                    silence = time.time() - last_message
+                    if silence >= stall_timeout:
+                        app.logger.warning(
+                            f"No gpsd data for {silence:.0f}s - reconnecting"
+                        )
+                        break
                     continue
 
         except (ConnectionRefusedError, OSError) as e:
@@ -167,7 +204,7 @@ def gpsd_reader(app, socketio, gps_data, gpsd_host, gpsd_port, update_interval):
                     sock.close()
             except OSError:
                 pass
-            if connected or gps_data["connected"]:
+            if gps_data["connected"]:
                 gps_data["connected"] = False
                 socketio.emit("gps_status", {"connected": False})
 

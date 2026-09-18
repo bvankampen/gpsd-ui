@@ -36,6 +36,11 @@ html * {
     font-family: 'Courier New', monospace;
 }
 
+/* Values whose feed has stopped updating */
+.is-stale {
+    opacity: 0.55;
+}
+
 /* Legend dots */
 .legend-dot {
     display: inline-block;

@@ -36,40 +36,121 @@ document.getElementById('theme-toggle').addEventListener('click', function() {
     applyTheme(isDark() ? 'light' : 'dark');
 });
 
-let gpsAnchor = null;
+// A clock is only presented as running while the server keeps producing new
+// samples: a frozen feed must not keep ticking as if it were live.
+const SAMPLE_STALE_AFTER_MS = 10000;
 
-function updateTimeDisplay() {
-    const now = gpsAnchor
-        ? new Date(gpsAnchor.serverTime.getTime() + (Date.now() - gpsAnchor.receivedAt))
-        : new Date();
+let gpsConnected = false;
+let ntpConnected = false;
 
-    // UTC time
-    const utcTime = now.toISOString().match(/T(\d{2}:\d{2}:\d{2})/);
-    document.getElementById('gps-time').textContent = utcTime ? utcTime[1] : '--:--:--';
+function createSampleClock() {
+    let sample = null;
 
-    // Date
-    const dateStr = now.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-    document.getElementById('gps-date').textContent = dateStr;
-
-    // Local time
-    const localTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    document.getElementById('gps-time-local').textContent = localTime + ' ' + tz;
+    return {
+        // `data.time` is the sample's own timestamp: when it stops changing the
+        // feed is frozen, no matter how often the payload is re-sent.
+        update(data) {
+            const advanced = !sample || data.time !== sample.key;
+            sample = {
+                key: data.time,
+                time: new Date(data.time),
+                advancedAt: advanced ? Date.now() : sample.advancedAt,
+                receivedAt: Date.now(),
+            };
+        },
+        clear() {
+            sample = null;
+        },
+        isLive(connected) {
+            return Boolean(
+                sample && connected &&
+                Date.now() - sample.advancedAt <= SAMPLE_STALE_AFTER_MS
+            );
+        },
+        // Live clocks interpolate from the sample with the local clock; a stale
+        // clock shows the last sample untouched.
+        displayTime(live) {
+            if (!sample) return null;
+            const base = sample.time.getTime();
+            return new Date(live ? base + (Date.now() - sample.receivedAt) : base);
+        },
+    };
 }
 
-let ntpAnchor = null;
+function formatAge(ms) {
+    const seconds = Math.max(0, Math.round(ms / 1000));
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ${minutes % 60}m`;
+    return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+}
+
+function utcTimeOf(date) {
+    const match = date.toISOString().match(/T(\d{2}:\d{2}:\d{2})/);
+    return match ? match[1] : '--:--:--';
+}
+
+function renderSampleAge(elementId, time, live) {
+    const element = document.getElementById(elementId);
+    const stale = Boolean(time) && !live;
+    element.textContent = !time
+        ? 'no data yet'
+        : (stale ? `stale - last sample ${formatAge(Date.now() - time.getTime())} old` : '');
+    element.classList.toggle('text-warning', stale);
+}
+
+function setGpsStale(stale) {
+    ['gps-date', 'gps-time', 'gps-time-local'].forEach(id =>
+        document.getElementById(id).classList.toggle('is-stale', stale));
+    document.querySelectorAll('[data-gps-panel]').forEach(panel =>
+        panel.classList.toggle('is-stale', stale));
+}
+
+const gpsClock = createSampleClock();
+
+function renderGpsStatus() {
+    const badge = document.getElementById('status-badge');
+    if (!gpsConnected) {
+        badge.textContent = 'Disconnected';
+        badge.className = 'badge bg-danger';
+    } else if (gpsClock.isLive(gpsConnected)) {
+        badge.textContent = 'Connected';
+        badge.className = 'badge bg-success';
+    } else {
+        badge.textContent = 'Stale';
+        badge.className = 'badge bg-warning text-dark';
+    }
+}
+
+function updateTimeDisplay() {
+    const live = gpsClock.isLive(gpsConnected);
+    const now = gpsClock.displayTime(live);
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    document.getElementById('gps-time').textContent = now ? utcTimeOf(now) : '--:--:--';
+    document.getElementById('gps-date').textContent = now
+        ? now.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
+        : '----';
+    document.getElementById('gps-time-local').textContent = now
+        ? now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) + ' ' + tz
+        : '--:--:-- ' + tz;
+
+    renderSampleAge('gps-time-age', now, live);
+    setGpsStale(Boolean(now) && !live);
+    renderGpsStatus();
+}
+
+const ntpClock = createSampleClock();
 
 function updateNtpTimeDisplay() {
-    const now = ntpAnchor
-        ? new Date(ntpAnchor.serverTime.getTime() + (Date.now() - ntpAnchor.receivedAt))
-        : null;
+    const live = ntpClock.isLive(ntpConnected);
+    const now = ntpClock.displayTime(live);
 
-    if (now) {
-        const utcTime = now.toISOString().match(/T(\d{2}:\d{2}:\d{2})/);
-        document.getElementById('ntp-time').textContent = utcTime ? utcTime[1] : '--:--:--';
-    } else {
-        document.getElementById('ntp-time').textContent = '--:--:--';
-    }
+    document.getElementById('ntp-time').textContent = now ? utcTimeOf(now) : '--:--:--';
+    document.getElementById('ntp-time').classList.toggle('is-stale', Boolean(now) && !live);
+    renderSampleAge('ntp-time-age', now, live);
 }
 
 const canvas = document.getElementById('skyplot');
@@ -244,17 +325,17 @@ socket.on('disconnect', () => setSocketStatus('disconnected', 'Offline', 'bg-dan
 socket.on('connect_error', () => setSocketStatus('connecting', 'Retrying', 'bg-warning text-dark'));
 
 socket.on('gps_status', (data) => {
-    const badge = document.getElementById('status-badge');
-    badge.textContent = data.connected ? 'Connected' : 'Disconnected';
-    badge.className = 'badge ' + (data.connected ? 'bg-success' : 'bg-danger');
+    gpsConnected = Boolean(data.connected);
+    updateTimeDisplay();
 });
 
 socket.on('gps_update', (data) => {
     document.getElementById('device-name').textContent = data.device || '';
 
-    const badge = document.getElementById('status-badge');
-    badge.textContent = data.connected ? 'Connected' : 'Disconnected';
-    badge.className = 'badge ' + (data.connected ? 'bg-success' : 'bg-danger');
+    gpsConnected = Boolean(data.connected);
+    if (data.time) {
+        gpsClock.update(data);
+    }
 
     const fixEl = document.getElementById('fix-mode');
     if (data.mode === 3) { fixEl.textContent = '3D Fix'; fixEl.className = 'badge bg-success'; }
@@ -273,11 +354,7 @@ socket.on('gps_update', (data) => {
         data.course != null ? data.course.toFixed(1) + '°' : '--';
     document.getElementById('climb').textContent =
         data.climb != null ? data.climb.toFixed(1) + ' m/s' : '--';
-    // Format time - extract HH:MM:SS from ISO string and show local time
-    if (data.time) {
-        gpsAnchor = { serverTime: new Date(data.time), receivedAt: Date.now() };
-        updateTimeDisplay();
-    }
+    updateTimeDisplay();
 
     const sats = data.satellites || [];
     document.getElementById('sats-visible').textContent = sats.length;
@@ -317,13 +394,13 @@ socket.on('ntp_update', (data) => {
         statusEl.className = 'badge bg-danger';
     }
 
+    ntpConnected = Boolean(data.connected);
     if (data.time) {
-        ntpAnchor = { serverTime: new Date(data.time), receivedAt: Date.now() };
-        updateNtpTimeDisplay();
+        ntpClock.update(data);
     } else {
-        ntpAnchor = null;
-        document.getElementById('ntp-time').textContent = '--:--:--';
+        ntpClock.clear();
     }
+    updateNtpTimeDisplay();
 
     document.getElementById('ntp-offset').textContent =
         data.offset != null ? (data.offset * 1000).toFixed(2) : '--';

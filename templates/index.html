@@ -37,12 +37,13 @@
             <!-- Sidebar -->
             <div class="col-md-4 col-lg-3 sidebar border-end border-body p-3 overflow-auto">
                 <!-- Time (UTC) -->
-                <div class="card mb-3">
+                <div class="card mb-3" data-gps-panel>
                     <div class="card-header py-2 text-uppercase small fw-bold">Time (UTC)</div>
                     <div class="card-body py-2">
                         <div id="gps-date" class="text-body-secondary text-center small">----</div>
                         <div id="gps-time" class="time-display text-center">--:--:--</div>
                         <div id="gps-time-local" class="time-display-local text-center">--:--:--</div>
+                        <div id="gps-time-age" class="text-body-secondary text-center small mt-1">no data yet</div>
                     </div>
                 </div>
 
@@ -50,7 +51,8 @@
                 <div class="card mb-3" id="ntp-card">
                     <div class="card-header py-2 text-uppercase small fw-bold">NTP</div>
                     <div class="card-body py-2">
-                        <div id="ntp-time" class="ntp-time-display text-center mb-2">--:--:--</div>
+                        <div id="ntp-time" class="ntp-time-display text-center mb-1">--:--:--</div>
+                        <div id="ntp-time-age" class="text-body-secondary text-center small mb-2">no data yet</div>
                         <div class="d-flex justify-content-between small mb-1">
                             <span class="text-body-secondary">Server</span>
                             <span id="ntp-host" class="fw-medium">--</span>
@@ -95,7 +97,7 @@
                 </div>
 
                 <!-- Receiver -->
-                <div class="card mb-3">
+                <div class="card mb-3" data-gps-panel>
                     <div class="card-header py-2 text-uppercase small fw-bold">Receiver</div>
                     <div class="card-body py-2">
                         <div class="d-flex justify-content-between small mb-1">
@@ -130,7 +132,7 @@
                 </div>
 
                 <!-- Satellites -->
-                <div class="card mb-3">
+                <div class="card mb-3" data-gps-panel>
                     <div class="card-header py-2 text-uppercase small fw-bold">Satellites</div>
                     <div class="card-body py-2">
                         <div class="d-flex gap-4 text-center mb-2">
@@ -155,7 +157,7 @@
                 </div>
 
                 <!-- Accuracy -->
-                <div class="card mb-3">
+                <div class="card mb-3" data-gps-panel>
                     <div class="card-header py-2 text-uppercase small fw-bold">Accuracy</div>
                     <div class="card-body py-2">
                         <div class="d-flex justify-content-between small mb-1">

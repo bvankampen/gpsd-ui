@@ -1,7 +1,7 @@
 # GPSD Web UI Configuration
 #
 # Environment variables override config.yaml values:
-#   GPSD_HOST, GPSD_PORT, NTP_ENABLED, NTP_HOST,
+#   GPSD_HOST, GPSD_PORT, GPSD_STALL_TIMEOUT, NTP_ENABLED, NTP_HOST,
 #   UPDATE_INTERVAL, WEB_HOST, WEB_PORT, LOG_LEVEL
 
 log_level: INFO  # DEBUG, INFO, WARNING, ERROR
@@ -11,6 +11,7 @@ update_interval: 1  # seconds - shared by GPS and NTP
 gpsd:
   host: localhost
   port: 2947
+  stall_timeout: 30  # seconds without gpsd data before reconnecting
 
 ntp:
   enabled: false

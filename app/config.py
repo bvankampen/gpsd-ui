@@ -55,6 +55,9 @@ def env_list(key, default=None):
 LOG_LEVEL = env("LOG_LEVEL", config.get("log_level", "INFO")).upper()
 GPSD_HOST = env("GPSD_HOST", GPSD_CFG.get("host", "localhost"))
 GPSD_PORT = env_int("GPSD_PORT", GPSD_CFG.get("port", 2947))
+GPSD_STALL_TIMEOUT = env_int(
+    "GPSD_STALL_TIMEOUT", GPSD_CFG.get("stall_timeout", 30)
+)
 NTP_ENABLED = env_bool("NTP_ENABLED", NTP_CFG.get("enabled", False))
 NTP_HOST = env("NTP_HOST", NTP_CFG.get("host", "pool.ntp.org"))
 UPDATE_INTERVAL = env_int("UPDATE_INTERVAL", config.get("update_interval", 1))
